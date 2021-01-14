@@ -1,0 +1,9 @@
+[submodule "dibit_vector"]
+	path = dibit_vector
+	url = https://github.com/hewillk/dibit_vector.git
+[submodule "serializer"]
+	path = serializer
+	url = https://github.com/hewillk/serializer.git
+[submodule "istring"]
+	path = istring
+	url = https://github.com/hewillk/istring.git
