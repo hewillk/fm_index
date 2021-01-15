@@ -3,7 +3,8 @@
 
 ```cpp
 biomodern::DibitVector bwt; // a compression vector which store the bwt.
-vector<array<uint32_t, 4>> occ; // a hierarchical sampled occurrence table.
+vector<array<uint32_t, 4>> occ1;
+vector<array<uint8_t, 4>> occ2; // a hierarchical sampled occurrence table.
 vector<uint32_t> sa; // a sampled suffix array.
 vector<uint32_t> lookup; // a lookup table for fixed suffix query.
 ```
