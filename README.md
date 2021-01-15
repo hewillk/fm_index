@@ -22,6 +22,7 @@ The memory usage for `FMIndex` in run time is affect by above parameters. Take a
 
 So the default total memory occupation of `FMIndex` for `3.1Gb` human genome is `0.775 Gb + 0.194Gb + 0.775Gb + 12Gb + 0.25Gb = 13.994Gb`.
 
+## Usage
 The FMIndex class provide very simple interface for ultra fast exact match:
 ```cpp
 using istring_view = basic_string_view<int8_t>;
@@ -40,7 +41,8 @@ pair<uint32_t, uint32_t> get_range(istring_view);
 // if sa_intv is 1, this can be done at O(1).
 vector<uint32_t> get_offsets(uint32_t, uint32_t);
 
-// Utility for serialization. The binary binary archive file size is same as the memory occupation in run time.
+// Utility for serialization. 
+// The binary binary archive file size is same as the memory occupation in run time.
 void save(ofstream&);
 void load(ifstream&);
 ```
