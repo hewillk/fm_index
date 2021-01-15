@@ -58,9 +58,9 @@ void load(ifstream&);
 #include "fm_index.hpp"
   
 int main() {
-	using namespace biomodern::utility;
+  using namespace biomodern::utility;
   {
-    auto fmi = biomodern::FMIndex{"20210313333123021232121013201333310231201"_is};
+    auto fmi = biomodern::FMIndex{"202103133331230212321201333310231201"_is};
     auto fout = std::ofstream{"fmi.bin", std::ios::binary};
     fmi.save(fout);
   }
