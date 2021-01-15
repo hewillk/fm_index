@@ -34,10 +34,13 @@ static vector<uint32_t> FMIndex::get_sa(istring_view ref);
 // Noticed that this Ctor will call FMIndex::get_sa(...) to generate suffix array.
 FMIndex(istring_view ref);
 
-// Return begin and end index of the uncompressed suffix array for the input query.
+// Get begin and end index of the uncompressed suffix array for the input seed.
 // Difference between begin and end is the occurrence count in reference.
+// The third value is the remaining prefix length for the seed. 
+// Notice that when the stop_cnt is -1, this value always be 0.
 // The stop_cnt can be using to early stop when occurrence count is not greater than the value.
-pair<uint32_t, uint32_t> get_range(istring_view seed, uint32_t stop_cnt);
+// Set to -1 to forbid early stop.
+tuple<uint32_t, uint32_t, uint32_t> get_range(istring_view seed, uint32_t stop_cnt);
 
 // Compute the suffix array value according to the begin and end. 
 // If sa_intv is 1, this can be done at O(1).
@@ -47,5 +50,30 @@ vector<uint32_t> get_offsets(uint32_t, uint32_t);
 // The binary binary archive file size is same as the memory occupation in run time.
 void save(ofstream&);
 void load(ifstream&);
+```
+
+## Example
+```cpp
+#include <iostream>
+#include "fm_index.hpp"
+  
+int main() {
+	using namespace biomodern::utility;
+  {
+    auto fmi = biomodern::FMIndex{"20210313333123021232121013201333310231201"_is};
+    auto fout = std::ofstream{"fmi.bin", std::ios::binary};
+    fmi.save(fout);
+  }
+  auto fmi = biomodern::FMIndex{};
+  {
+    auto fin = std::ifstream{"fmi.bin", std::ios::binary};
+    fmi.load(fin);
+  }
+  const auto [begin, end, offset] = fmi.get_range("33331"_is, 0);
+  assert(offset == 0);
+  assert(end - begin == 2);
+  const auto offsets = fmi.get_offsets(begin, end);
+  for (const auto offset : offsets) std::cout << offset << " ";
+}
 ```
 
