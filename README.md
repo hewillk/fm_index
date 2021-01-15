@@ -1,5 +1,5 @@
 ## biomodern-fm-index
-`biomodern::FMIndex` is specialization of FM-Index for genome sequence which implemented using C++20. The core data structure of `biomodern::FMIndex` are following:
+`biomodern::FMIndex` is specialization of FM-Index for genome sequence which implemented using C++20. The core data structure of `FMIndex` are following:
 
 ```cpp
 biomodern::DibitVector bwt; // a compression vector which store the bwt.
