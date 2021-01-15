@@ -31,17 +31,16 @@ using istring_view = basic_string_view<int8_t>;
 static vector<uint32_t> FMIndex::get_sa(istring_view ref);
 
 // Ctor. initialize the core data structure from reference istring. 
-// noticed that this Ctor will call FMIndex::get_sa(...) to generate suffix array.
+// Noticed that this Ctor will call FMIndex::get_sa(...) to generate suffix array.
 FMIndex(istring_view ref);
 
 // Return begin and end index of the uncompressed suffix array for the input query.
 // Difference between begin and end is the occurrence count in reference.
-// stop_cnt can be using to early stop when occurrence count is not greater than value.
-// If you want to force iterate every base of seed, please set stop_cnt to -1.
+// The stop_cnt can be using to early stop when occurrence count is not greater than the value.
 pair<uint32_t, uint32_t> get_range(istring_view seed, uint32_t stop_cnt);
 
 // Compute the suffix array value according to the begin and end. 
-// if sa_intv is 1, this can be done at O(1).
+// If sa_intv is 1, this can be done at O(1).
 vector<uint32_t> get_offsets(uint32_t, uint32_t);
 
 // Utility for serialization. 
