@@ -1,4 +1,4 @@
-## biomodern-fm-index
+## Biomodern.FmIndex
 `biomodern::FMIndex` is specialization of FM-Index for genome sequence which implemented using C++20. The core data structure of `FMIndex` are following:
 
 ```cpp
@@ -21,6 +21,9 @@ The memory usage for `FMIndex` in run time is affect by above parameters. Take a
 - lookup table: `4^lookup_len(13) * 4 / 1024^3 = 0.25Gb`.
 
 So the default total memory occupation of `FMIndex` for `3.1Gb` human genome is `0.775 Gb + 0.194Gb + 0.775Gb + 12Gb + 0.25Gb = 13.994Gb`.
+
+## Compilers
+- GCC 10.2
 
 ## Usage
 The FMIndex class provide very simple interface for ultra fast exact match:
