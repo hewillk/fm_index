@@ -22,11 +22,14 @@ namespace biomodern {
 using namespace std::chrono;
 using namespace utility;
 
-template <auto occ_intv = 128u, auto sa_intv = 32u, auto lookup_len = 8u>
 class FMIndex {
  public:
   using size_type = std::uint32_t;
   using char_type = std::int8_t;
+
+  constexpr static auto occ_intv = 16u;
+  constexpr static auto sa_intv = 1u;
+  constexpr static auto lookup_len = 13u;
 
   constexpr static auto sort_len = 256u;
   constexpr static auto occ1_intv = 256u;
