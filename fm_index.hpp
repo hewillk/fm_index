@@ -203,7 +203,7 @@ class FMIndex {
     return get_range(seed, beg, end, stop_cnt);
   }
 
-  auto save(std::ofstream& fout) {
+  auto save(std::ofstream& fout) const {
     fout.write(reinterpret_cast<const char*>(&cnt_), sizeof(cnt_));
     fout.write(reinterpret_cast<const char*>(&pri_), sizeof(pri_));
     std::cout << "save bwt...\n";
