@@ -45,8 +45,8 @@ class FMIndex {
                 return ref.substr(i, sort_len) < ref.substr(j, sort_len);
               });
     const auto end = high_resolution_clock::now();
-    const auto dur = duration_cast<milliseconds>(end - start);
-    std::cout << "sorting time: " << dur.count() << " ms.\n";
+    const auto dur = duration_cast<seconds>(end - start);
+    std::cout << "sorting time: " << dur.count() << " s.\n";
     return sa;
   }
 
@@ -122,8 +122,8 @@ class FMIndex {
     }
     lookup_.push_back(bwt_.size());
     const auto end = high_resolution_clock::now();
-    const auto dur = duration_cast<milliseconds>(end - start);
-    std::cout << "computing time: " << dur.count() << " ms.\n";
+    const auto dur = duration_cast<seconds>(end - start);
+    std::cout << "computing time: " << dur.count() << " s.\n";
   }
 
  public:
