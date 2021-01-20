@@ -10,6 +10,7 @@
 #include <numeric>
 #include <span>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <vector>
 
@@ -38,15 +39,10 @@ class FMIndex {
   static auto get_sa(istring_view ref) {
     auto sa = std::vector<size_type>(ref.size() + 1);
     std::iota(sa.begin(), sa.end(), 0);
-    std::cout << "sa sort start...\n";
-    const auto start = high_resolution_clock::now();
     std::sort(std::execution::par_unseq, sa.begin(), sa.end(),
               [ref](const auto i, const auto j) {
                 return ref.substr(i, sort_len) < ref.substr(j, sort_len);
               });
-    const auto end = high_resolution_clock::now();
-    const auto dur = duration_cast<seconds>(end - start);
-    std::cout << "sorting time: " << dur.count() << " s.\n";
     return sa;
   }
 
@@ -111,28 +107,58 @@ class FMIndex {
 
   auto compute_lockup() {
     constexpr auto lookup_size = size_type{1} << lookup_len * 2;
-    lookup_.reserve(lookup_size + 1);
-    std::cout << "computing " << lookup_size << " suffix for for lockup...\n";
-    const auto start = high_resolution_clock::now();
-    std::cout << "compute start...\n";
-    for (auto i = size_type{}; i < lookup_size; i++) {
-      const auto key = Codec::rhash(i, lookup_len);
-      const auto [beg, end, offset] = compute_range(key, 0, bwt_.size(), 0);
-      lookup_.push_back(beg);
+    lookup_.resize(lookup_size + 1);
+    lookup_.back() = bwt_.size();
+
+    const auto set_value = [this](const auto beg_i, const auto end_i) {
+      const auto remain = (end_i - beg_i) % 2;
+      const auto last_i = end_i - remain;
+      for (auto i = beg_i; i < last_i; i += 2) {
+        const auto seed = Codec::rhash(i, lookup_len);
+        const auto [beg, end, offset] =
+            compute_range(seed, 0, lookup_.back(), 0);
+        lookup_[i] = beg;
+        lookup_[i + 1] = end;
+      }
+      if (remain) {
+        const auto seed = Codec::rhash(last_i, lookup_len);
+        lookup_[last_i] =
+            std::get<0>(compute_range(seed, 0, lookup_.back(), 0));
+      }
+    };
+
+    const auto thread_n = std::thread::hardware_concurrency();
+    const auto batch_size = lookup_size / thread_n;
+    auto workers = std::vector<std::thread>{};
+    for (auto i = 0; i < thread_n; i++) {
+      workers.emplace_back(set_value, i * batch_size, (i + 1) * batch_size);
     }
-    lookup_.push_back(bwt_.size());
-    const auto end = high_resolution_clock::now();
-    const auto dur = duration_cast<seconds>(end - start);
-    std::cout << "computing time: " << dur.count() << " s.\n";
+    set_value(thread_n * batch_size, lookup_size);
+    for (auto& worker : workers) worker.join();
   }
 
  public:
   FMIndex() = default;
   FMIndex(istring_view ref) {
     std::cout << "validate ref...\n";
-    assert(std::ranges::all_of(ref, [](auto c) { return c >= 0 && c <= 3; }));
+    auto start = high_resolution_clock::now();
+    assert(std::all_of(std::execution::par_unseq, ref.cbegin(), ref.cend(),
+                       [](auto c) { return c >= 0 && c <= 3; }));
+    auto end = high_resolution_clock::now();
+    auto dur = duration_cast<seconds>(end - start);
+    std::cout << "validating time: " << dur.count() << " s.\n";
 
+    std::cout << "sa sort start...\n";
+    const auto thread_n = std::thread::hardware_concurrency();
+    std::cout << "using " << thread_n << " threads.\n";
+    start = high_resolution_clock::now();
     auto ori_sa = get_sa(ref);
+    end = high_resolution_clock::now();
+    dur = duration_cast<seconds>(end - start);
+    std::cout << "sorting time: " << dur.count() << " s.\n";
+
+    std::cout << "build bwt and sample occ...\n";
+    start = high_resolution_clock::now();
     bwt_.reserve(ori_sa.size());
     auto& [occ1, occ2] = occ_;
     occ1.reserve(ori_sa.size() / occ1_intv + 1);
@@ -170,7 +196,26 @@ class FMIndex {
       x = sum - x;
     }
     if constexpr (sa_intv == 1) sa_.swap(ori_sa);
+    end = high_resolution_clock::now();
+    dur = duration_cast<seconds>(end - start);
+    std::cout << "building time: " << dur.count() << " s.\n";
+
+    std::cout << "computing " << (1ull << lookup_len * 2)
+              << " suffix for for lookup...\n";
+    std::cout << "using " << thread_n << " threads.\n";
+    start = high_resolution_clock::now();
     compute_lockup();
+    end = high_resolution_clock::now();
+    dur = duration_cast<seconds>(end - start);
+    std::cout << "computing time: " << dur.count() << " s.\n";
+
+    std::cout << "validate lookup...\n";
+    start = high_resolution_clock::now();
+    assert(std::is_sorted(std::execution::par_unseq, lookup_.cbegin(),
+                          lookup_.cend()));
+    end = high_resolution_clock::now();
+    dur = duration_cast<seconds>(end - start);
+    std::cout << "validating time: " << dur.count() << " s.\n";
   }
 
   auto get_offsets(size_type beg, size_type end) const {
