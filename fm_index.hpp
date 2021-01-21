@@ -51,7 +51,7 @@ class FMIndex {
   std::array<size_type, 4> cnt_{};
   size_type pri_{};
   std::vector<size_type> lookup_;
-  std::array<std::size_t, lookup_len - 1> trunc_{};
+  std::array<size_type, lookup_len - 1> trunc_{};
 
   constexpr static auto cnt_table = [] {
     std::array<std::array<std::uint8_t, 4>, 256> cnt_table{};
