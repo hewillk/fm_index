@@ -68,7 +68,10 @@ int main() {
   ref.reserve(3137454505);
   auto fin = std::ifstream{"hs37d5.fa"};
   for (auto line = ""s; std::getline(fin, line);) {
-    if (line.front() == '>') continue;
+    if (line.front() == '>') {
+        std::cout << line << "\n";
+        continue;
+    }
     auto subref = Codec::to_istring(line);
     // fm-index only support four characters so we need change 'N' to 'A'
     std::ranges::replace(subref, 4, 0);
