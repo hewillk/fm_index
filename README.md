@@ -64,32 +64,30 @@ int main() {
   using namespace biomodern::utility;
   using namespace std::string_literals;
 
-  auto ref = ""_is;
-  ref.reserve(3137454505);
-  auto fin = std::ifstream{"hs37d5.fa"};
-  for (auto line = ""s; std::getline(fin, line);) {
-    if (line.front() == '>') {
+  {
+    auto ref = ""_is;
+    ref.reserve(3137454505);
+    auto fin = std::ifstream{"hs37d5.fa"};
+    for (auto line = ""s; std::getline(fin, line);) {
+      if (line.front() == '>') {
         std::cout << line << "\n";
         continue;
+      }
+      auto subref = Codec::to_istring(line);
+      // fm-index only support four characters so we need change 'N' to 'A'
+      std::ranges::replace(subref, 4, 0);
+      ref += subref;
     }
-    auto subref = Codec::to_istring(line);
-    // fm-index only support four characters so we need change 'N' to 'A'
-    std::ranges::replace(subref, 4, 0);
-    ref += subref;
-  }
-  fin.close();
-
-  {
     const auto fmi = biomodern::FMIndex{ref};
     auto fout = std::ofstream{"hs37d5.fmi", std::ios::binary};
     fmi.save(fout);
-    fout.close();
   }
+  
   auto fmi = biomodern::FMIndex{};
-  fin.open("hs37d5.fmi", std::ios::binary);
-  fmi.load(fin);
-  fin.close();
-
+  {
+    auto fin = std::ifstream{"hs37d5.fmi", std::ios::binary};
+    fmi.load(fin);
+  }
   for (auto seed = ""_is; std::cin >> seed;) {
     const auto [beg, end, offset] = fmi.get_range(seed, 0);
 		std::cout << "seed: " << seed << "\n";
