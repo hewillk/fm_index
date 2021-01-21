@@ -62,21 +62,41 @@ void load(ifstream&);
   
 int main() {
   using namespace biomodern::utility;
+  using namespace std::string_literals;
+
+  auto ref = ""_is;
+  ref.reserve(3137454505);
+  auto fin = std::ifstream{"hs37d5.fa"};
+  for (auto line = ""s; std::getline(fin, line);) {
+    if (line.front() == '>') continue;
+    auto subref = Codec::to_istring(line);
+    // fm-index only support four characters so we need change 'N' to 'A'
+    std::ranges::replace(subref, 4, 0);
+    ref += subref;
+  }
+  fin.close();
+
   {
-    auto fmi = biomodern::FMIndex{"202103133331230212321201333310231201"_is};
-    auto fout = std::ofstream{"fmi.bin", std::ios::binary};
+    const auto fmi = biomodern::FMIndex{ref};
+    auto fout = std::ofstream{"hs37d5.fmi", std::ios::binary};
     fmi.save(fout);
+    fout.close();
   }
   auto fmi = biomodern::FMIndex{};
-  {
-    auto fin = std::ifstream{"fmi.bin", std::ios::binary};
-    fmi.load(fin);
+  fin.open("hs37d5.fmi", std::ios::binary);
+  fmi.load(fin);
+  fin.close();
+
+  for (auto seed = ""_is; std::cin >> seed;) {
+    const auto [beg, end, offset] = fmi.get_range(seed, 0);
+		std::cout << "seed: " << seed << "\n";
+    std::cout << "seed offset: " << offset << "\n";
+    std::cout << "occurrence: " << end - beg << "\n";
+    const auto offsets = fmi.get_offsets(beg, end);
+    std::cout << "ref offsets: ";
+    for (const auto offset : offsets) std::cout << offset << " ";
+		std::cout << "\n";
   }
-  const auto [begin, end, offset] = fmi.get_range("33331"_is, 0);
-  assert(offset == 0);
-  assert(end - begin == 2);
-  const auto offsets = fmi.get_offsets(begin, end);
-  for (const auto offset : offsets) std::cout << offset << " ";
 }
 ```
 
