@@ -147,13 +147,17 @@ class FMIndex {
     }
   }
 
+  static auto validate(istring_view s) {
+    assert(std::all_of(std::execution::par_unseq, s.cbegin(), s.cend(),
+                       [](auto c) { return c >= 0 && c <= 3; }));
+  }
+
  public:
   FMIndex() = default;
   FMIndex(istring_view ref) {
     std::cout << "validate ref...\n";
     auto start = high_resolution_clock::now();
-    assert(std::all_of(std::execution::par_unseq, ref.cbegin(), ref.cend(),
-                       [](auto c) { return c >= 0 && c <= 3; }));
+    validate(ref);
     auto end = high_resolution_clock::now();
     auto dur = duration_cast<seconds>(end - start);
     std::cout << "elapsed time: " << dur.count() << " s.\n";
@@ -235,7 +239,6 @@ class FMIndex {
       auto offsets = std::vector<size_type>{};
       offsets.reserve(end - beg);
       for (auto i = beg; i < end; i++) offsets.push_back(compute_sa(i));
-      std::ranges::sort(offsets);
       return offsets;
     }
   }
@@ -243,10 +246,12 @@ class FMIndex {
   auto get_range(istring_view seed, size_type beg, size_type end,
                  size_type stop_cnt) const {
     if (end == beg || seed.empty()) return std::array{beg, end, size_type{}};
+    validate(seed);
     return compute_range(seed, beg, end, stop_cnt + 1);
   }
 
   auto get_range(istring_view seed, size_type stop_cnt) const {
+    validate(seed);
     auto beg = size_type{};
     auto end = bwt_.size();
     if (seed.size() >= lookup_len) {
@@ -293,8 +298,6 @@ class FMIndex {
     std::cout << "load lookup...\n";
     Serializer::load(fin, lookup_);
     fin.read(reinterpret_cast<char*>(&trunc_), sizeof(trunc_));
-    std::cout << "trunc: \n";
-    for (const auto x : trunc_) std::cout << x << "\n";
     assert(fin.peek() == EOF);
     const auto end = high_resolution_clock::now();
     const auto dur = duration_cast<seconds>(end - start);
