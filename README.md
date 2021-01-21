@@ -90,13 +90,13 @@ int main() {
   }
   for (auto seed = ""_is; std::cin >> seed;) {
     const auto [beg, end, offset] = fmi.get_range(seed, 0);
-		std::cout << "seed: " << seed << "\n";
+    std::cout << "seed: " << seed << "\n";
     std::cout << "seed offset: " << offset << "\n";
     std::cout << "occurrence: " << end - beg << "\n";
     const auto offsets = fmi.get_offsets(beg, end);
     std::cout << "ref offsets: ";
     for (const auto offset : offsets) std::cout << offset << " ";
-		std::cout << "\n";
+      std::cout << "\n";
   }
 }
 ```
