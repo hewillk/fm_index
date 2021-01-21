@@ -20,7 +20,7 @@ The memory usage for `FMIndex` in run time is affect by above parameters. Take a
 - suffix array: `3.1Gb * 4 / sa_intv(1) = 12Gb`. Noticed that in default mode we dont sampling suffix value since this can reduce frequently memory allocation and intense computation when occurs massive query.
 - lookup table: `4^lookup_len(14) * 4 / 1024^3 = 1Gb`.
 
-So the default total memory occupation of `FMIndex` for `3.1Gb` human genome is `0.775 Gb + 0.194Gb + 0.775Gb + 12Gb + 1Gb = 14.744Gb`.
+So the default total memory occupation for `3.1Gb` human genome is `0.775 Gb + 0.194Gb + 0.775Gb + 12Gb + 1Gb = 14.744Gb`.
 
 ## Compilers
 - GCC 10.2
