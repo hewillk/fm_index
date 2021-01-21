@@ -1,17 +1,12 @@
 #ifndef BIOMODERN__FM_INDEX_HPP_
 #define BIOMODERN__FM_INDEX_HPP_
 
-#include <algorithm>
-#include <array>
-#include <bit>
 #include <chrono>
 #include <execution>
 #include <iostream>
 #include <numeric>
 #include <span>
-#include <string>
 #include <thread>
-#include <tuple>
 #include <vector>
 
 #include "dibit_vector/dibit_vector.hpp"
@@ -30,7 +25,7 @@ class FMIndex {
 
   constexpr static auto occ_intv = 16u;
   constexpr static auto sa_intv = 1u;
-  constexpr static auto lookup_len = 13u;
+  constexpr static auto lookup_len = 14u;
 
   constexpr static auto sort_len = 256u;
   constexpr static auto occ1_intv = 256u;
@@ -39,10 +34,10 @@ class FMIndex {
   static auto get_sa(istring_view ref) {
     auto sa = std::vector<size_type>(ref.size() + 1);
     std::iota(sa.begin(), sa.end(), 0);
-    std::sort(std::execution::par_unseq, sa.begin(), sa.end(),
-              [ref](const auto i, const auto j) {
-                return ref.substr(i, sort_len) < ref.substr(j, sort_len);
-              });
+    std::stable_sort(std::execution::par_unseq, sa.begin(), sa.end(),
+                     [ref](const auto i, const auto j) {
+                       return ref.substr(i, sort_len) < ref.substr(j, sort_len);
+                     });
     return sa;
   }
 
@@ -56,6 +51,7 @@ class FMIndex {
   std::array<size_type, 4> cnt_{};
   size_type pri_{};
   std::vector<size_type> lookup_;
+  std::array<std::size_t, lookup_len - 1> trunc_{};
 
   constexpr static auto cnt_table = [] {
     std::array<std::array<std::uint8_t, 4>, 256> cnt_table{};
@@ -102,13 +98,13 @@ class FMIndex {
       end = lf(seed.back(), end);
       seed.remove_suffix(1);
     }
-    return std::tuple{beg, end, seed.size()};
+    return std::array{beg, end, static_cast<size_type>(seed.size())};
   }
 
   auto compute_lockup() {
     constexpr auto lookup_size = size_type{1} << lookup_len * 2;
-    lookup_.resize(lookup_size + 1);
-    lookup_.back() = bwt_.size();
+    lookup_.resize(lookup_size);
+    lookup_.push_back(bwt_.size());
 
     const auto set_value = [this](const auto beg_i, const auto end_i) {
       const auto remain = (end_i - beg_i) % 2;
@@ -122,8 +118,9 @@ class FMIndex {
       }
       if (remain) {
         const auto seed = Codec::rhash(last_i, lookup_len);
-        lookup_[last_i] =
-            std::get<0>(compute_range(seed, 0, lookup_.back(), 0));
+        const auto [beg, end, offset] =
+            compute_range(seed, 0, lookup_.back(), 0);
+        lookup_[last_i] = beg;
       }
     };
 
@@ -137,6 +134,19 @@ class FMIndex {
     for (auto& worker : workers) worker.join();
   }
 
+  auto set_trunc(istring_view ref) {
+    const auto last_pos = ref.size() - lookup_len;
+    const auto last_key = Codec::hash(ref.substr(last_pos));
+    if (last_key == 0) return;
+    constexpr auto mask =
+        ~(std::numeric_limits<std::size_t>::max() << lookup_len * 2);
+    for (auto i = 1; i < lookup_len; i++) {
+      const auto key = (last_key << 2 * i) & mask;
+      trunc_[i - 1] = key;
+      if (sa_[lookup_[key]] == last_pos + i) lookup_[key]++;
+    }
+  }
+
  public:
   FMIndex() = default;
   FMIndex(istring_view ref) {
@@ -146,16 +156,15 @@ class FMIndex {
                        [](auto c) { return c >= 0 && c <= 3; }));
     auto end = high_resolution_clock::now();
     auto dur = duration_cast<seconds>(end - start);
-    std::cout << "validating time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
-    std::cout << "sa sort start...\n";
     const auto thread_n = std::thread::hardware_concurrency();
-    std::cout << "using " << thread_n << " threads.\n";
+    std::cout << "sa sort start...(using " << thread_n << " threads)\n";
     start = high_resolution_clock::now();
     auto ori_sa = get_sa(ref);
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cout << "sorting time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
     std::cout << "build bwt and sample occ...\n";
     start = high_resolution_clock::now();
@@ -198,16 +207,17 @@ class FMIndex {
     if constexpr (sa_intv == 1) sa_.swap(ori_sa);
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cout << "building time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
     std::cout << "computing " << (1ull << lookup_len * 2)
-              << " suffix for for lookup...\n";
-    std::cout << "using " << thread_n << " threads.\n";
+              << " suffix for for lookup...(using " << thread_n
+              << " threads)\n";
     start = high_resolution_clock::now();
     compute_lockup();
+    set_trunc(ref);
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cout << "computing time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
     std::cout << "validate lookup...\n";
     start = high_resolution_clock::now();
@@ -215,7 +225,7 @@ class FMIndex {
                           lookup_.cend()));
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cout << "validating time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
   }
 
   auto get_offsets(size_type beg, size_type end) const {
@@ -232,7 +242,7 @@ class FMIndex {
 
   auto get_range(istring_view seed, size_type beg, size_type end,
                  size_type stop_cnt) const {
-    if (end == beg || seed.empty()) return std::tuple{beg, end, 0ul};
+    if (end == beg || seed.empty()) return std::array{beg, end, size_type{}};
     return compute_range(seed, beg, end, stop_cnt + 1);
   }
 
@@ -243,12 +253,15 @@ class FMIndex {
       const auto key = Codec::hash(seed.substr(seed.size() - lookup_len));
       beg = lookup_[key];
       end = lookup_[key + 1];
+      if (trunc_.front() && std::ranges::find(trunc_, key + 1) != trunc_.cend())
+        end--;
       seed.remove_suffix(lookup_len);
     }
     return get_range(seed, beg, end, stop_cnt);
   }
 
   auto save(std::ofstream& fout) const {
+    const auto start = high_resolution_clock::now();
     fout.write(reinterpret_cast<const char*>(&cnt_), sizeof(cnt_));
     fout.write(reinterpret_cast<const char*>(&pri_), sizeof(pri_));
     std::cout << "save bwt...\n";
@@ -260,9 +273,14 @@ class FMIndex {
     Serializer::save(fout, sa_);
     std::cout << "save lockup...\n";
     Serializer::save(fout, lookup_);
+    fout.write(reinterpret_cast<const char*>(&trunc_), sizeof(trunc_));
+    const auto end = high_resolution_clock::now();
+    const auto dur = duration_cast<seconds>(end - start);
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
   }
 
   auto load(std::ifstream& fin) {
+    const auto start = high_resolution_clock::now();
     fin.read(reinterpret_cast<char*>(&cnt_), sizeof(cnt_));
     fin.read(reinterpret_cast<char*>(&pri_), sizeof(pri_));
     std::cout << "load bwt...\n";
@@ -274,7 +292,13 @@ class FMIndex {
     Serializer::load(fin, sa_);
     std::cout << "load lookup...\n";
     Serializer::load(fin, lookup_);
+    fin.read(reinterpret_cast<char*>(&trunc_), sizeof(trunc_));
+    std::cout << "trunc: \n";
+    for (const auto x : trunc_) std::cout << x << "\n";
     assert(fin.peek() == EOF);
+    const auto end = high_resolution_clock::now();
+    const auto dur = duration_cast<seconds>(end - start);
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
   }
 
   bool operator==(const FMIndex& other) const = default;
