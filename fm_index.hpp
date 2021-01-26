@@ -51,7 +51,6 @@ class FMIndex {
   std::array<size_type, 4> cnt_{};
   size_type pri_{};
   std::vector<size_type> lookup_;
-  std::array<size_type, lookup_len - 1> trunc_{};
 
   constexpr static auto cnt_table = [] {
     std::array<std::array<std::uint8_t, 4>, 256> cnt_table{};
@@ -134,19 +133,6 @@ class FMIndex {
     for (auto& worker : workers) worker.join();
   }
 
-  auto set_trunc(istring_view ref) {
-    const auto last_pos = ref.size() - lookup_len;
-    const auto last_key = Codec::hash(ref.substr(last_pos));
-    if (last_key == 0) return;
-    constexpr auto mask =
-        ~(std::numeric_limits<std::size_t>::max() << lookup_len * 2);
-    for (auto i = 1; i < lookup_len; i++) {
-      const auto key = (last_key << 2 * i) & mask;
-      trunc_[i - 1] = key;
-      if (sa_[lookup_[key]] == last_pos + i) lookup_[key]++;
-    }
-  }
-
   static auto validate(istring_view s) {
     assert(std::all_of(std::execution::par_unseq, s.cbegin(), s.cend(),
                        [](auto c) { return c >= 0 && c <= 3; }));
@@ -155,6 +141,11 @@ class FMIndex {
  public:
   FMIndex() = default;
   FMIndex(istring_view ref) {
+    std::cout << "build FM-index begin...\n";
+    std::cout << "occ sampling interval: " << occ_intv << "\n";
+    std::cout << "sa sampling interval: " << sa_intv << "\n";
+    std::cout << "lookup string length: " << lookup_len << "\n";
+
     std::cout << "validate ref...\n";
     auto start = high_resolution_clock::now();
     validate(ref);
@@ -218,7 +209,6 @@ class FMIndex {
               << " threads)\n";
     start = high_resolution_clock::now();
     compute_lockup();
-    set_trunc(ref);
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
     std::cout << "elapsed time: " << dur.count() << " s.\n";
@@ -246,20 +236,16 @@ class FMIndex {
   auto get_range(istring_view seed, size_type beg, size_type end,
                  size_type stop_cnt) const {
     if (end == beg || seed.empty()) return std::array{beg, end, size_type{}};
-    validate(seed);
     return compute_range(seed, beg, end, stop_cnt + 1);
   }
 
   auto get_range(istring_view seed, size_type stop_cnt) const {
-    validate(seed);
     auto beg = size_type{};
     auto end = bwt_.size();
     if (seed.size() >= lookup_len) {
       const auto key = Codec::hash(seed.substr(seed.size() - lookup_len));
       beg = lookup_[key];
       end = lookup_[key + 1];
-      if (trunc_.front() && std::ranges::find(trunc_, key + 1) != trunc_.cend())
-        end--;
       seed.remove_suffix(lookup_len);
     }
     return get_range(seed, beg, end, stop_cnt);
@@ -278,7 +264,6 @@ class FMIndex {
     Serializer::save(fout, sa_);
     std::cout << "save lockup...\n";
     Serializer::save(fout, lookup_);
-    fout.write(reinterpret_cast<const char*>(&trunc_), sizeof(trunc_));
     const auto end = high_resolution_clock::now();
     const auto dur = duration_cast<seconds>(end - start);
     std::cout << "elapsed time: " << dur.count() << " s.\n";
@@ -297,7 +282,6 @@ class FMIndex {
     Serializer::load(fin, sa_);
     std::cout << "load lookup...\n";
     Serializer::load(fin, lookup_);
-    fin.read(reinterpret_cast<char*>(&trunc_), sizeof(trunc_));
     assert(fin.peek() == EOF);
     const auto end = high_resolution_clock::now();
     const auto dur = duration_cast<seconds>(end - start);
