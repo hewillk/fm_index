@@ -58,6 +58,7 @@ void load(ifstream&);
 ## Example
 ```cpp
 #include <iostream>
+#include <experimental/random>
 #include "fm_index.hpp"
   
 int main() {
@@ -74,8 +75,8 @@ int main() {
         continue;
       }
       auto subref = Codec::to_istring(line);
-      // fm-index only support four characters so we need change 'N' to 'A'
-      std::ranges::replace(subref, 4, 0);
+      // fm-index only support four characters so we need change 'N' to 'ACGT'
+      for (auto& c : subref) if (c == 4) c = std::experimental::randint(0, 3);
       ref += subref;
     }
     const auto fmi = biomodern::FMIndex{ref};
@@ -88,6 +89,7 @@ int main() {
     auto fin = std::ifstream{"hs37d5.fmi", std::ios::binary};
     fmi.load(fin);
   }
+  
   for (auto seed = ""_is; std::cin >> seed;) {
     const auto [beg, end, offset] = fmi.get_range(seed, 0);
     std::cout << "seed: " << seed << "\n";
