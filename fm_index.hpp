@@ -1,5 +1,4 @@
-#ifndef BIOMODERN__FM_INDEX_HPP_
-#define BIOMODERN__FM_INDEX_HPP_
+#pragma once
 
 #include <chrono>
 #include <execution>
@@ -9,9 +8,9 @@
 #include <thread>
 #include <vector>
 
+#include "dibit_vector.hpp"
 #include "istring.hpp"
 #include "serializer.hpp"
-#include "xibit_vector.hpp"
 
 namespace biomodern {
 
@@ -31,10 +30,11 @@ class FMIndex {
   constexpr static auto occ2_intv = occ_intv;
 
   static auto get_sa(istring_view ref) {
+    constexpr auto sort_len = (sa_intv == 1 ? 256u : istring::npos);
     auto sa = std::vector<size_type>(ref.size() + 1);
     std::iota(sa.begin(), sa.end(), 0);
     std::stable_sort(std::execution::par_unseq, sa.begin(), sa.end(), [ref](auto i, auto j) {
-      return ref.substr(i) < ref.substr(j);
+      return ref.substr(i, sort_len) < ref.substr(j, sort_len);
     });
     return sa;
   }
@@ -131,27 +131,27 @@ class FMIndex {
  public:
   FMIndex() = default;
   FMIndex(istring_view ref) {
-    std::cerr << "build FM-index begin...\n";
-    std::cerr << "occ sampling interval: " << occ_intv << "\n";
-    std::cerr << "sa sampling interval: " << sa_intv << "\n";
-    std::cerr << "lookup string length: " << lookup_len << "\n";
+    std::cout << "build FM-index begin...\n";
+    std::cout << "occ sampling interval: " << occ_intv << "\n";
+    std::cout << "sa sampling interval: " << sa_intv << "\n";
+    std::cout << "lookup string length: " << lookup_len << "\n";
 
-    std::cerr << "validate ref...\n";
+    std::cout << "validate ref...\n";
     auto start = high_resolution_clock::now();
     validate(ref);
     auto end = high_resolution_clock::now();
     auto dur = duration_cast<seconds>(end - start);
-    std::cerr << "elapsed time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
     const auto thread_n = std::thread::hardware_concurrency();
-    std::cerr << "sa sort start...(using " << thread_n << " threads)\n";
+    std::cout << "sa sort start...(using " << thread_n << " threads)\n";
     start = high_resolution_clock::now();
     auto ori_sa = get_sa(ref);
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cerr << "elapsed time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
-    std::cerr << "build bwt and sample occ...\n";
+    std::cout << "build bwt and sample occ...\n";
     start = high_resolution_clock::now();
     bwt_.reserve(ori_sa.size());
     auto& [occ1, occ2] = occ_;
@@ -192,22 +192,22 @@ class FMIndex {
     if constexpr (sa_intv == 1) sa_.swap(ori_sa);
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cerr << "elapsed time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
-    std::cerr << "computing " << (1ull << lookup_len * 2) << " suffix for for lookup...(using "
+    std::cout << "computing " << (1ull << lookup_len * 2) << " suffix for for lookup...(using "
               << thread_n << " threads)\n";
     start = high_resolution_clock::now();
     compute_lockup();
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cerr << "elapsed time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
 
-    std::cerr << "validate lookup...\n";
+    std::cout << "validate lookup...\n";
     start = high_resolution_clock::now();
     assert(std::is_sorted(std::execution::par_unseq, lookup_.cbegin(), lookup_.cend()));
     end = high_resolution_clock::now();
     dur = duration_cast<seconds>(end - start);
-    std::cerr << "elapsed time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
   }
 
   auto get_offsets(size_type beg, size_type end) const {
@@ -241,42 +241,40 @@ class FMIndex {
     const auto start = high_resolution_clock::now();
     fout.write(reinterpret_cast<const char*>(&cnt_), sizeof(cnt_));
     fout.write(reinterpret_cast<const char*>(&pri_), sizeof(pri_));
-    std::cerr << "save bwt...\n";
+    std::cout << "save bwt...\n";
     Serializer::save(fout, bwt_);
-    std::cerr << "save occ...\n";
+    std::cout << "save occ...\n";
     Serializer::save(fout, occ_.first);
     Serializer::save(fout, occ_.second);
-    std::cerr << "save sa...\n";
+    std::cout << "save sa...\n";
     Serializer::save(fout, sa_);
-    std::cerr << "save lockup...\n";
+    std::cout << "save lockup...\n";
     Serializer::save(fout, lookup_);
     const auto end = high_resolution_clock::now();
     const auto dur = duration_cast<seconds>(end - start);
-    std::cerr << "elapsed time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
   }
 
   auto load(std::ifstream& fin) {
     const auto start = high_resolution_clock::now();
     fin.read(reinterpret_cast<char*>(&cnt_), sizeof(cnt_));
     fin.read(reinterpret_cast<char*>(&pri_), sizeof(pri_));
-    std::cerr << "load bwt...\n";
+    std::cout << "load bwt...\n";
     Serializer::load(fin, bwt_);
-    std::cerr << "load occ...\n";
+    std::cout << "load occ...\n";
     Serializer::load(fin, occ_.first);
     Serializer::load(fin, occ_.second);
-    std::cerr << "load sa...\n";
+    std::cout << "load sa...\n";
     Serializer::load(fin, sa_);
-    std::cerr << "load lookup...\n";
+    std::cout << "load lookup...\n";
     Serializer::load(fin, lookup_);
     assert(fin.peek() == EOF);
     const auto end = high_resolution_clock::now();
     const auto dur = duration_cast<seconds>(end - start);
-    std::cerr << "elapsed time: " << dur.count() << " s.\n";
+    std::cout << "elapsed time: " << dur.count() << " s.\n";
   }
 
   bool operator==(const FMIndex& other) const = default;
 };
 
 }  // namespace biomodern
-
-#endif
