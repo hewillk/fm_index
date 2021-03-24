@@ -66,7 +66,7 @@ int main() {
   using namespace std::string_literals;
 
   {
-    auto ref = ""_is;
+    auto ref = istring{};
     ref.reserve(3137454505);
     auto fin = std::ifstream{"hs37d5.fa"};
     for (auto line = ""s; std::getline(fin, line);) {
@@ -90,7 +90,7 @@ int main() {
     fmi.load(fin);
   }
   
-  for (auto seed = ""_is; std::cin >> seed;) {
+  for (auto seed = istring{}; std::cin >> seed;) {
     const auto [beg, end, offset] = fmi.get_range(seed, 0);
     std::cout << "seed: " << seed << "\n";
     std::cout << "seed offset: " << offset << "\n";
